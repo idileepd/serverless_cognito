@@ -1,0 +1,26 @@
+
+@host=https://honr8mgwtd.execute-api.us-east-1.amazonaws.com
+
+###
+GET {{host}}/tasks
+
+
+###
+POST {{host}}/tasks
+Content-Type: application/json
+
+{
+    "id":1,
+    "title":"My first task",
+    "desc":"I am enjoyiong my task"
+}
+
+
+PUT {{host}}/tasks
+Content-Type: application/json
+
+{
+    "id":1,
+    "title":"My first task",
+    "desc":"I am enjoyiong my task"
+}

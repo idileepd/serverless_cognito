@@ -1,0 +1,123 @@
+service: task-api
+frameworkVersion: "3.38"
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  memorySize: 128
+  logRetentionInDays: 1
+  environment:
+    REGION: ${self:provider.region}
+    TASKS_TABLE: !Ref TasksTable
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Scan
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - !GetAtt TasksTable.Arn
+    - Effect: Allow
+      Action:
+        - cognito-idp:AdminGetUser
+        - cognito-idp:AdminCreateUser
+        - cognito-idp:AdminInitiateAuth
+        - cognito-idp:AdminSetUserPassword
+      Resource:
+        - !GetAtt UserPool.Arn
+
+functions:
+  getTasks:
+    handler: src/handlers/getTasks.handler
+    events:
+      - httpApi:
+          path: /tasks
+          method: GET
+  getTask:
+    handler: src/handlers/getTask.handler
+    events:
+      - httpApi:
+          path: /tasks/{id}
+          method: GET
+  createTask:
+    handler: src/handlers/createTask.handler
+    events:
+      - httpApi:
+          path: /tasks
+          method: POST
+  updateTask:
+    handler: src/handlers/updateTask.handler
+    events:
+      - httpApi:
+          path: /tasks/{id}
+          method: PUT
+  deleteTask:
+    handler: src/handlers/deleteTask.handler
+    events:
+      - httpApi:
+          path: /tasks/{id}
+          method: DELETE
+
+resources:
+  Resources:
+    # UserPool:
+    #   Type: AWS::Cognito::UserPool
+    #   Properties:
+    #     UserPoolName: ${self:service}-user-pool-${self:provider.stage}
+    #     Schema:
+    #       - Name: email
+    #         Required: true
+    #         Mutable: true
+    #     Policies:
+    #       PasswordPolicy:
+    #         MinimumLength: 6
+    #     AutoVerifiedAttributes: ["email"]
+
+    UserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:service}-user-pool-${self:provider.stage}
+        AutoVerifiedAttributes:
+          - email
+          - phone_number
+        UsernameAttributes:
+          - email
+          - phone_number
+        Schema:
+          - Name: email
+            Required: true
+            Mutable: false
+          - Name: phone_number
+            Required: true
+            Mutable: true
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireUppercase: true
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: true
+
+    UserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: ${self:service}-user-pool-client-${self:provider.stage}
+        UserPoolId:
+          # This user pool client connects to top UserPool
+          Ref: UserPool
+        GenerateSecret: false
+        ExplicitAuthFlows:
+          - ADMIN_NO_SRP_AUTH
+          - USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_CUSTOM_AUTH
+          # In hours expiry 5- 5hrs
+        AccessTokenValidity: 5
+        IdTokenValidity: 5
+
+    TasksTable: ${file(resources/TasksTable.yml):TasksTable}
